@@ -3,51 +3,50 @@ package models
 import (
 	"bytes"
 	"encoding/json"
+	"firebase-authentication/entity"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
 )
 
-const (
-	verifyCustomTokenURL = "https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyCustomToken?key=%s"
-)
+const verifyCustomTokenURL = "https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyCustomToken?key=%s"
 
-var (
-	apiKey = os.Getenv("API_KEY")
-)
+var apiKey = os.Getenv("API_KEY")
 
-func SignInWithCustomToken(token string) (string, error) {
-	req, err := json.Marshal(map[string]interface{}{
-		"token":             token,
+func SignInWithCustomToken(Customtoken string) (entity.Token, error) {
+	var token entity.Token
+
+	request, err := json.Marshal(map[string]interface{}{
+		"token":             Customtoken,
 		"returnSecureToken": true,
 	})
 	if err != nil {
-		return "", err
+		return entity.Token{}, err
 	}
 
-	resp, err := postRequest(fmt.Sprintf(verifyCustomTokenURL, apiKey), req)
+	response, err := postRequest(fmt.Sprintf(verifyCustomTokenURL, apiKey), request)
 	if err != nil {
-		return "", err
+		return entity.Token{}, err
 	}
-	var respBody struct {
-		IDToken string `json:"idToken"`
+
+	if err := json.Unmarshal(response, &token); err != nil {
+		return entity.Token{}, err
 	}
-	if err := json.Unmarshal(resp, &respBody); err != nil {
-		return "", err
-	}
-	return respBody.IDToken, err
+
+	return token, nil
 }
 
-func postRequest(url string, req []byte) ([]byte, error) {
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(req))
+func postRequest(url string, request []byte) ([]byte, error) {
+	response, err := http.Post(url, "application/json", bytes.NewBuffer(request))
 	if err != nil {
 		return nil, err
 	}
+	defer response.Body.Close()
 
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected http status code: %d", resp.StatusCode)
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected http status code: %d", response.StatusCode)
 	}
-	return ioutil.ReadAll(resp.Body)
+
+	return ioutil.ReadAll(response.Body)
 }
