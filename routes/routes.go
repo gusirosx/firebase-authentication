@@ -2,52 +2,41 @@ package routes
 
 import (
 	"firebase-authentication/handlers"
-	"firebase-authentication/service"
-	"fmt"
 	"log"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
-var router *gin.Engine
+const port string = ":8000"
 
 func GinSetup() {
-	const port string = ":8080"
 	// Set Gin to production mode
 	//gin.SetMode(gin.ReleaseMode)
 
 	// Set the router as the default one provided by Gin
-	router = gin.Default()
+	router := gin.Default()
 
-	// Initialize the routes
-	initializeRoutes()
+	// Initialize API routes
+	InitializeRoutes(router)
 
 	// Start serving the application
 	if err := router.Run(port); err != nil {
-		err := fmt.Errorf("could not run the application: %v", err)
-		log.Fatalf(err.Error())
+		log.Fatalln("could not run the application: ", err.Error())
 	} else {
 		log.Fatalf("Server listening on port" + string(port))
 	}
 }
 
-func initializeRoutes() {
-	// Use the setUserStatus middleware for every route to set a flag
-	// indicating whether the request was from an authenticated user or not
-	//router.Use(middleware.SetUserStatus())
+func InitializeRoutes(router *gin.Engine) {
 	// Handle the index route
-	router.GET("/", func(c *gin.Context) {
-		// Contact the server and print out its response.
-		fmt.Fprintln(c.Writer, "Up and running...")
+	router.GET("/", func(ctx *gin.Context) {
+		ctx.JSON(http.StatusOK, gin.H{"success": "Up and running..."})
 	})
-
-	// Setup Firebase
-	var err error
-	service.Client, err = service.GetClientFirebase()
-	if err != nil {
-		err := fmt.Errorf("error getting the auth client: %v", err)
-		log.Fatalf(err.Error())
-	}
-	// Handle token
+	// Handle Get requests for ID token's
 	router.GET("/token", handlers.Token)
+	// Handle the no route case
+	router.NoRoute(func(ctx *gin.Context) {
+		ctx.JSON(http.StatusNotFound, gin.H{"message": "Page not found"})
+	})
 }

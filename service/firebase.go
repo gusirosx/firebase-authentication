@@ -11,6 +11,15 @@ import (
 // Setup Firebase
 var Client *auth.Client
 
+// Firebase admin SDK client initialization
+func StartFirebase() {
+	var err error
+	Client, err = GetClientFirebase()
+	if err != nil {
+		log.Fatalln("error getting the auth client: ", err.Error())
+	}
+}
+
 //Firebase admin SDK initialization
 func GetClientFirebase() (*auth.Client, error) {
 	// Initialize default app
