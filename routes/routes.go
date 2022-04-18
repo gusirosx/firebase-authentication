@@ -36,6 +36,7 @@ func InitializeRoutes(router *gin.Engine) {
 	// Handle Get requests for ID token's
 	router.POST("/token", handlers.GetToken)
 	router.POST("/refreshtoken", handlers.RefreshIDtoken)
+	router.POST("/passwordResetEmail", handlers.SendPasswordResetEmail)
 
 	// Handle the no route case
 	router.NoRoute(func(ctx *gin.Context) {

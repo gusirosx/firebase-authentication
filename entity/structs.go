@@ -1,7 +1,8 @@
 package entity
 
 type User struct {
-	Uid string `json:"uid"`
+	Uid   string `json:"uid"`
+	Email string `json:"email"`
 }
 
 type Token struct {

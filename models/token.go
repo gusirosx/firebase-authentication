@@ -19,14 +19,14 @@ const (
 
 	verifyCustomToken = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=%s"
 
+	passwordResetEmail = "https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=%s"
+
 	refreshToID = "https://securetoken.googleapis.com/v1/token?key=%s"
 )
 
 var apiKey = os.Getenv("API_KEY")
 
-func SignInWithCustomToken2(Customtoken string) (entity.Token, error) {
-	var token entity.Token
-
+func SignInWithCustomToken(Customtoken string) (entity.Token, error) {
 	request, err := json.Marshal(map[string]interface{}{
 		"token":             Customtoken,
 		"returnSecureToken": true,
@@ -35,20 +35,20 @@ func SignInWithCustomToken2(Customtoken string) (entity.Token, error) {
 		return entity.Token{}, err
 	}
 
-	response, err := postRequest(fmt.Sprintf(verifyCustomToken, apiKey), request)
+	response, err := postRequest(fmt.Sprintf(verifyCustomToken, apiKey), "application/json", request)
 	if err != nil {
 		return entity.Token{}, err
 	}
 
+	var token entity.Token
 	if err := json.Unmarshal(response, &token); err != nil {
 		return entity.Token{}, err
 	}
-
 	return token, nil
 }
 
-func postRequest(url string, request []byte) ([]byte, error) {
-	response, err := http.Post(url, "application/json", bytes.NewBuffer(request))
+func postRequest(url string, contentType string, request []byte) ([]byte, error) {
+	response, err := http.Post(url, contentType, bytes.NewBuffer(request))
 	if err != nil {
 		return nil, err
 	}
@@ -59,36 +59,6 @@ func postRequest(url string, request []byte) ([]byte, error) {
 	}
 
 	return ioutil.ReadAll(response.Body)
-}
-
-func SignInWithCustomToken(Customtoken string) (entity.Token, error) {
-	httpposturl := fmt.Sprintf(verifyCustomToken, apiKey)
-
-	requestJSON, err := json.Marshal(map[string]interface{}{
-		"token":             Customtoken,
-		"returnSecureToken": true,
-	})
-	if err != nil {
-		return entity.Token{}, err
-	}
-
-	request, error := http.NewRequest("POST", httpposturl, bytes.NewBuffer(requestJSON))
-	request.Header.Set("Content-Type", "application/json; charset=UTF-8")
-
-	client := &http.Client{}
-	response, error := client.Do(request)
-	if error != nil {
-		panic(error)
-	}
-	defer response.Body.Close()
-
-	body, _ := ioutil.ReadAll(response.Body)
-
-	var token entity.Token
-	if err := json.Unmarshal(body, &token); err != nil {
-		return entity.Token{}, err
-	}
-	return token, nil
 }
 
 //Exchange a refresh token for an ID token
@@ -125,4 +95,54 @@ func RefreshIDtoken(refreshToken string) (entity.RefreshToken, error) {
 
 }
 
+func SendPasswordResetEmail(email string) error {
+	request, err := json.Marshal(map[string]interface{}{
+		"requestType": "PASSWORD_RESET",
+		"email":       email,
+	})
+	if err != nil {
+		log.Println(err.Error())
+		return err
+	}
+
+	_, err = postRequest(fmt.Sprintf(passwordResetEmail, apiKey), "application/json", request)
+	if err != nil {
+		log.Println(err.Error())
+		return err
+	}
+
+	// var token entity.Token
+	// if err := json.Unmarshal(response, &token); err != nil {
+	// 	return entity.Token{}, err
+	// }
+	return nil
+}
+
+// =============================================================================
+// https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=[API_KEY]
+// curl 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=[API_KEY]' \
+// -H 'Content-Type: application/json' \
+// --data-binary '{"requestType":"PASSWORD_RESET","email":"[user@example.com]"}'
+
+// {
+//  "email": "[user@example.com]"
+// }
+
+// =============================================================================
+// curl 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=[API_KEY]' \
+// -H 'Content-Type: application/json' \
+// --data-binary '{"token":"[CUSTOM_TOKEN]","returnSecureToken":true}'
+
 //https://firebase.google.com/docs/reference/rest/auth?hl=en#section-verify-custom-token
+
+// request, error := http.NewRequest("POST", httpposturl, bytes.NewBuffer(requestJSON))
+// request.Header.Set("Content-Type", "application/json; charset=UTF-8")
+
+// client := &http.Client{}
+// response, error := client.Do(request)
+// if error != nil {
+// 	panic(error)
+// }
+// defer response.Body.Close()
+
+// body, _ := ioutil.ReadAll(response.Body)
