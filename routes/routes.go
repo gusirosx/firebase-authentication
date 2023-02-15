@@ -1,3 +1,4 @@
+// Package routes provides the API routes for the application.
 package routes
 
 import (
@@ -8,38 +9,40 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const port string = ":8000"
+const port = ":8000"
 
+// GinSetup initializes and runs the API server using Gin.
 func GinSetup() {
-	// Set Gin to production mode
-	//gin.SetMode(gin.ReleaseMode)
-
-	// Set the router as the default one provided by Gin
+	// Create a new router instance
 	router := gin.Default()
 
 	// Initialize API routes
-	InitializeRoutes(router)
+	initializeRoutes(router)
 
 	// Start serving the application
 	if err := router.Run(port); err != nil {
-		log.Fatalln("could not run the application: ", err.Error())
+		log.Fatalf("could not run the application: %v", err)
 	} else {
-		log.Fatalf("Server listening on port" + string(port))
+		log.Printf("Server listening on port %v", port)
 	}
 }
 
-func InitializeRoutes(router *gin.Engine) {
+// initializeRoutes sets up the routes for the API server.
+func initializeRoutes(router *gin.Engine) {
 	// Handle the index route
-	router.GET("/", func(ctx *gin.Context) {
-		ctx.JSON(http.StatusOK, gin.H{"success": "Up and running..."})
+	router.GET("/", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"success": "Up and running..."})
 	})
-	// Handle Get requests for ID token's
+
+	// Handle token-related routes
 	router.POST("/token", handlers.GetToken)
 	router.POST("/refreshtoken", handlers.RefreshIDtoken)
+
+	// Handle password reset email route
 	router.POST("/passwordResetEmail", handlers.SendPasswordResetEmail)
 
 	// Handle the no route case
-	router.NoRoute(func(ctx *gin.Context) {
-		ctx.JSON(http.StatusNotFound, gin.H{"message": "Page not found"})
+	router.NoRoute(func(c *gin.Context) {
+		c.JSON(http.StatusNotFound, gin.H{"message": "Page not found"})
 	})
 }

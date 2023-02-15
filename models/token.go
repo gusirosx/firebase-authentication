@@ -14,41 +14,144 @@ import (
 	"strings"
 )
 
+//https://firebase.google.com/docs/reference/rest/auth?hl=en#section-verify-custom-token
+
+// Constants
 const (
 	verifyCustomTokenURL = "https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyCustomToken?key=%s"
-
-	verifyCustomToken = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=%s"
-
-	passwordResetEmail = "https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=%s"
-
-	refreshToID = "https://securetoken.googleapis.com/v1/token?key=%s"
+	verifyCustomToken    = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=%s"
+	passwordResetEmail   = "https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=%s"
+	refreshToID          = "https://securetoken.googleapis.com/v1/token?key=%s"
+	defaultContentType   = "application/json"
 )
 
 var apiKey = os.Getenv("API_KEY")
 
-func SignInWithCustomToken(Customtoken string) (entity.Token, error) {
+// Token represents a Firebase authentication token
+type Token struct {
+	IDToken      string `json:"idToken"`
+	RefreshToken string `json:"refreshToken"`
+	ExpiresIn    string `json:"expiresIn"`
+}
+
+// RefreshToken represents a Firebase refresh token
+type RefreshToken struct {
+	Token         string `json:"id_token"`
+	RefreshToken  string `json:"refresh_token"`
+	ExpiresIn     int    `json:"expires_in"`
+	TokenType     string `json:"token_type"`
+	UserID        string `json:"user_id"`
+	ProjectID     string `json:"project_id"`
+	RefreshType   string `json:"refresh_type"`
+	FederatedID   string `json:"federated_id"`
+	FederatedIDTS string `json:"federated_id_ts"`
+}
+
+// SignInWithCustomToken exchanges a custom token for an authentication token
+func SignInWithCustomToken(customToken string) (Token, error) {
 	request, err := json.Marshal(map[string]interface{}{
-		"token":             Customtoken,
+		"token":             customToken,
 		"returnSecureToken": true,
 	})
 	if err != nil {
-		return entity.Token{}, err
+		return Token{}, err
 	}
 
-	response, err := postRequest(fmt.Sprintf(verifyCustomToken, apiKey), "application/json", request)
+	response, err := postRequest(fmt.Sprintf(verifyCustomToken, apiKey), defaultContentType, request)
 	if err != nil {
-		return entity.Token{}, err
+		return Token{}, err
 	}
 
-	var token entity.Token
+	var token Token
 	if err := json.Unmarshal(response, &token); err != nil {
-		return entity.Token{}, err
+		return Token{}, err
 	}
 	return token, nil
 }
 
-func postRequest(url string, contentType string, request []byte) ([]byte, error) {
-	response, err := http.Post(url, contentType, bytes.NewBuffer(request))
+// RefreshIDToken exchanges a refresh token for an ID token
+func RefreshIDToken(refreshToken string) (RefreshToken, error) {
+	endpoint := fmt.Sprintf(refreshToID, apiKey)
+	data := url.Values{}
+	data.Set("grant_type", "refresh_token")
+	data.Set("refresh_token", refreshToken)
+
+	response, err := postRequest(endpoint, defaultContentType, []byte(data.Encode()))
+	if err != nil {
+		return RefreshToken{}, err
+	}
+
+	var token RefreshToken
+	if err := json.Unmarshal(response, &token); err != nil {
+		return RefreshToken{}, err
+	}
+	return token, nil
+}
+
+// RefreshIDtoken exchanges a refresh token for an ID token
+func RefreshIDtoken(refreshToken string) (entity.RefreshToken, error) {
+	endpoint := fmt.Sprintf(refreshToID, apiKey)
+	data := url.Values{}
+	data.Set("grant_type", "refresh_token")
+	data.Set("refresh_token", refreshToken)
+
+	client := &http.Client{}
+	request, err := http.NewRequest(http.MethodPost, endpoint, strings.NewReader(data.Encode()))
+	if err != nil {
+		log.Println("Error creating request: ", err)
+		return entity.RefreshToken{}, err
+	}
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	request.Header.Set("Content-Length", strconv.Itoa(len(data.Encode())))
+
+	response, err := client.Do(request)
+	if err != nil {
+		log.Println("Error sending request: ", err)
+		return entity.RefreshToken{}, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return entity.RefreshToken{}, fmt.Errorf("unexpected http status code: %d", response.StatusCode)
+	}
+
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		log.Println("Error reading response: ", err)
+		return entity.RefreshToken{}, err
+	}
+
+	var token entity.RefreshToken
+	if err := json.Unmarshal(body, &token); err != nil {
+		log.Println("Error unmarshaling response: ", err)
+		return entity.RefreshToken{}, err
+	}
+
+	return token, nil
+}
+
+// SendPasswordResetEmail sends a password reset email to the specified email address
+func SendPasswordResetEmail(email string) error {
+	requestBody, err := json.Marshal(map[string]interface{}{
+		"requestType": "PASSWORD_RESET",
+		"email":       email,
+	})
+	if err != nil {
+		log.Println("Error creating request: ", err)
+		return err
+	}
+
+	_, err = postRequest(fmt.Sprintf(passwordResetEmail, apiKey), defaultContentType, requestBody)
+	if err != nil {
+		log.Println("Error sending request: ", err)
+		return err
+	}
+
+	return nil
+}
+
+func postRequest(url string, contentType string, requestBody []byte) ([]byte, error) {
+	response, err := http.Post(url, contentType, bytes.NewBuffer(requestBody))
 	if err != nil {
 		return nil, err
 	}
@@ -58,91 +161,10 @@ func postRequest(url string, contentType string, request []byte) ([]byte, error)
 		return nil, fmt.Errorf("unexpected http status code: %d", response.StatusCode)
 	}
 
-	return ioutil.ReadAll(response.Body)
+	responseBody, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return responseBody, nil
 }
-
-//Exchange a refresh token for an ID token
-func RefreshIDtoken(refreshToken string) (entity.RefreshToken, error) {
-	endpoint := fmt.Sprintf(refreshToID, apiKey)
-	data := url.Values{}
-	data.Set("grant_type", "refresh_token")
-	data.Set("refresh_token", refreshToken)
-
-	client := &http.Client{}
-	response, err := http.NewRequest("POST", endpoint, strings.NewReader(data.Encode())) // URL-encoded payload
-	if err != nil {
-		log.Fatal(err)
-	}
-	response.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	response.Header.Add("Content-Length", strconv.Itoa(len(data.Encode())))
-
-	res, err := client.Do(response)
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Println(res.Status)
-	defer res.Body.Close()
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		log.Println(err.Error())
-	}
-
-	var token entity.RefreshToken
-	if err := json.Unmarshal(body, &token); err != nil {
-		return entity.RefreshToken{}, err
-	}
-	return token, nil
-
-}
-
-func SendPasswordResetEmail(email string) error {
-	request, err := json.Marshal(map[string]interface{}{
-		"requestType": "PASSWORD_RESET",
-		"email":       email,
-	})
-	if err != nil {
-		log.Println(err.Error())
-		return err
-	}
-
-	_, err = postRequest(fmt.Sprintf(passwordResetEmail, apiKey), "application/json", request)
-	if err != nil {
-		log.Println(err.Error())
-		return err
-	}
-
-	// var token entity.Token
-	// if err := json.Unmarshal(response, &token); err != nil {
-	// 	return entity.Token{}, err
-	// }
-	return nil
-}
-
-// =============================================================================
-// https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=[API_KEY]
-// curl 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=[API_KEY]' \
-// -H 'Content-Type: application/json' \
-// --data-binary '{"requestType":"PASSWORD_RESET","email":"[user@example.com]"}'
-
-// {
-//  "email": "[user@example.com]"
-// }
-
-// =============================================================================
-// curl 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=[API_KEY]' \
-// -H 'Content-Type: application/json' \
-// --data-binary '{"token":"[CUSTOM_TOKEN]","returnSecureToken":true}'
-
-//https://firebase.google.com/docs/reference/rest/auth?hl=en#section-verify-custom-token
-
-// request, error := http.NewRequest("POST", httpposturl, bytes.NewBuffer(requestJSON))
-// request.Header.Set("Content-Type", "application/json; charset=UTF-8")
-
-// client := &http.Client{}
-// response, error := client.Do(request)
-// if error != nil {
-// 	panic(error)
-// }
-// defer response.Body.Close()
-
-// body, _ := ioutil.ReadAll(response.Body)
