@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"firebase-authentication/entity"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -115,7 +115,7 @@ func RefreshIDtoken(refreshToken string) (entity.RefreshToken, error) {
 		return entity.RefreshToken{}, fmt.Errorf("unexpected http status code: %d", response.StatusCode)
 	}
 
-	body, err := ioutil.ReadAll(response.Body)
+	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		log.Println("Error reading response: ", err)
 		return entity.RefreshToken{}, err
@@ -161,7 +161,7 @@ func postRequest(url string, contentType string, requestBody []byte) ([]byte, er
 		return nil, fmt.Errorf("unexpected http status code: %d", response.StatusCode)
 	}
 
-	responseBody, err := ioutil.ReadAll(response.Body)
+	responseBody, err := io.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
 	}
