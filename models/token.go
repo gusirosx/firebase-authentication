@@ -27,50 +27,30 @@ const (
 
 var apiKey = os.Getenv("API_KEY")
 
-// Token represents a Firebase authentication token
-type Token struct {
-	IDToken      string `json:"idToken"`
-	RefreshToken string `json:"refreshToken"`
-	ExpiresIn    string `json:"expiresIn"`
-}
-
-// RefreshToken represents a Firebase refresh token
-type RefreshToken struct {
-	Token         string `json:"id_token"`
-	RefreshToken  string `json:"refresh_token"`
-	ExpiresIn     int    `json:"expires_in"`
-	TokenType     string `json:"token_type"`
-	UserID        string `json:"user_id"`
-	ProjectID     string `json:"project_id"`
-	RefreshType   string `json:"refresh_type"`
-	FederatedID   string `json:"federated_id"`
-	FederatedIDTS string `json:"federated_id_ts"`
-}
-
 // SignInWithCustomToken exchanges a custom token for an authentication token
-func SignInWithCustomToken(customToken string) (Token, error) {
+func SignInWithCustomToken(customToken string) (entity.Token, error) {
 	request, err := json.Marshal(map[string]interface{}{
 		"token":             customToken,
 		"returnSecureToken": true,
 	})
 	if err != nil {
-		return Token{}, err
+		return entity.Token{}, err
 	}
 
 	response, err := postRequest(fmt.Sprintf(verifyCustomToken, apiKey), defaultContentType, request)
 	if err != nil {
-		return Token{}, err
+		return entity.Token{}, err
 	}
 
-	var token Token
+	var token entity.Token
 	if err := json.Unmarshal(response, &token); err != nil {
-		return Token{}, err
+		return entity.Token{}, err
 	}
 	return token, nil
 }
 
 // RefreshIDToken exchanges a refresh token for an ID token
-func RefreshIDToken(refreshToken string) (RefreshToken, error) {
+func RefreshIDToken(refreshToken string) (entity.RefreshToken, error) {
 	endpoint := fmt.Sprintf(refreshToID, apiKey)
 	data := url.Values{}
 	data.Set("grant_type", "refresh_token")
@@ -78,12 +58,12 @@ func RefreshIDToken(refreshToken string) (RefreshToken, error) {
 
 	response, err := postRequest(endpoint, defaultContentType, []byte(data.Encode()))
 	if err != nil {
-		return RefreshToken{}, err
+		return entity.RefreshToken{}, err
 	}
 
-	var token RefreshToken
+	var token entity.RefreshToken
 	if err := json.Unmarshal(response, &token); err != nil {
-		return RefreshToken{}, err
+		return entity.RefreshToken{}, err
 	}
 	return token, nil
 }
