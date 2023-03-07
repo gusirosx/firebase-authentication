@@ -8,10 +8,11 @@ import (
 	"firebase.google.com/go/v4/auth"
 )
 
-// Setup Firebase
-var Client *auth.Client
+var (
+	Client *auth.Client
+)
 
-// Firebase admin SDK client initialization
+// StartFirebase initializes the Firebase Admin SDK client.
 func StartFirebase() {
 	var err error
 	Client, err = GetClientFirebase()
@@ -20,17 +21,19 @@ func StartFirebase() {
 	}
 }
 
-//Firebase admin SDK initialization
+// GetClientFirebase returns an authenticated Firebase Auth client.
 func GetClientFirebase() (*auth.Client, error) {
-	// Initialize default app
+	// Initialize the default Firebase app.
 	app, err := firebase.NewApp(context.Background(), nil)
 	if err != nil {
-		log.Println("Error initializing the app" + string(err.Error()))
+		return nil, err
 	}
-	// Access auth service from the default app
+
+	// Get the Auth client from the default Firebase app.
 	client, err := app.Auth(context.Background())
 	if err != nil {
-		log.Println("Error getting Auth client" + string(err.Error()))
+		return nil, err
 	}
-	return client, err
+
+	return client, nil
 }

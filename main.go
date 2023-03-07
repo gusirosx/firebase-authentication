@@ -6,7 +6,8 @@ import (
 )
 
 func main() {
-	// Setup Gin-Gonic
+	// Initialize Firebase Auth client.
 	service.StartFirebase()
+	// Setup Gin-Gonic server.
 	routes.GinSetup()
 }
